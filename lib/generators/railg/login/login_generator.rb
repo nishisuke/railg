@@ -89,10 +89,6 @@ section.section
       .field
         .control
           = f.submit class: 'button'
-    = form_with url: session_url, method: :delete do |f|
-      .field
-        .control
-          = f.submit
       EOT
     end
 
