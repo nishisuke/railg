@@ -1,34 +1,44 @@
 module Railg
-  class LoginGenerator < ::Rails::Generators::Base
+  class LoginGenerator < ::Rails::Generators::NamedBase
     source_root File.expand_path('templates', __dir__)
+
+    argument :id_name, type: :string, default: '#{id_name}', banner: 'column name like email'
+
+    check_class_collision
 
     def gem_bcrypt
       gem 'bcrypt'
     end
 
+    def insert_header
+      insert_into_file 'app/views/layouts/application.html.erb', <<-TAG, after: "  <body>\n"
+    <%= render 'header' %>
+      TAG
+    end
+
     def add_route
       route 'resource  :session, only: %i[new create destroy]'
-      route 'resources :accounts, only: %i[new create]'
+      route "resources :#{plural_route_name}, only: %i[new create]"
     end
 
     def create_account_model
-      create_file 'app/models/account.rb', <<-EOT
+      create_file "app/models/#{file_path}.rb", <<-EOT
 # frozen_string_literal: true
 
-class Account < ApplicationRecord
+class #{class_name} < ApplicationRecord
   has_secure_password
 
-  validates :identifier, presence: true, uniqueness: true
+  validates :#{id_name}, presence: true, uniqueness: true
 end
       EOT
 
-      create_file 'db/migrate/20181105044958_create_accounts.rb', <<-EOT
-class CreateAccounts < ActiveRecord::Migration[5.2]
+      create_file "db/migrate/20181105044958_create_#{plural_table_name}.rb", <<-EOT
+class Create#{plural_table_name.capitalize} < ActiveRecord::Migration[5.2]
   def change
-    create_table :accounts do |t|
-      t.string :identifier, null: false
+    create_table :#{plural_table_name} do |t|
+      t.string :#{id_name}, null: false
       t.string :password_digest, null: false
-      t.index :identifier, unique: true
+      t.index :#{id_name}, unique: true
 
       t.timestamps
     end
@@ -48,18 +58,18 @@ nav.navbar
             .buttons
               - unless signed_in?
                 = link_to 'sign in', new_session_path, class: 'button is-text'
-                = link_to 'sign up', new_account_path, class: 'button is-text'
+                = link_to 'sign up', #{new_helper}, class: 'button is-text'
               - else
                 = f.submit 'sign out', class: 'button is-text'
       EOT
 
-      create_file 'app/views/accounts/new.html.slim', <<-EOT
+      create_file "app/views/#{plural_file_name}/new.html.slim", <<-EOT
 section.section
   .container
-    = form_with model: @account do |f|
+    = form_with model: #{redirect_resource_name} do |f|
       .field
         .control
-          = f.text_field :identifier, class: 'input'
+          = f.text_field :#{id_name}, class: 'input'
       .field
         .control
           = f.password_field :password, class: 'input'
@@ -77,7 +87,7 @@ section.section
     = form_with url: session_url do |f|
       .field
         .control
-          = f.text_field :identifier, class: 'input'
+          = f.text_field :#{id_name}, class: 'input'
       .field
         .control
           = f.password_field :password, class: 'input'
@@ -93,18 +103,18 @@ section.section
     end
 
     def create_controller_files
-      create_file 'app/controllers/accounts_controller.rb', <<-EOT
+      create_file "app/controllers/#{plural_name}_controller.rb", <<-EOT
 # frozen_string_literal: true
 
-class AccountsController < ApplicationController
+class #{plural_name.capitalize}Controller < ApplicationController
   def new
-    @account = Account.new
+    #{redirect_resource_name} = #{class_name}.new
   end
 
   def create
-    @account = Account.new(account_params)
+    #{redirect_resource_name} = #{class_name}.new(#{singular_name}_params)
 
-    if @account.save
+    if #{redirect_resource_name}.save
       redirect_to new_session_path
     else
       render :new
@@ -113,8 +123,8 @@ class AccountsController < ApplicationController
 
   private
 
-  def account_params
-    params.require(:account).permit(:identifier, :password, :password_confirmation)
+  def #{singular_name}_params
+    params.require(:#{singular_name}).permit(:#{id_name}, :password, :password_confirmation)
   end
 end
       EOT
@@ -125,7 +135,7 @@ end
 class AuthController < ApplicationController
   rescue_from 'SessionManager::NoSigninError', with: -> { redirect_to new_session_path }
 
-  before_action :current_account # require signin by raising SessionManager::NoSigninError
+  before_action :current_#{singular_name} # require signin by raising SessionManager::NoSigninError
 end
       EOT
 
@@ -137,10 +147,10 @@ class SessionsController < ApplicationController
   end
 
   def create
-    account = Account.find_by(identifier: params[:identifier])
+    #{singular_name} = #{class_name}.find_by(#{id_name}: params[:#{id_name}])
 
-    if account && account.authenticate(params[:password])
-      retain_session(account, remember: params[:remember])
+    if #{singular_name} && #{singular_name}.authenticate(params[:password])
+      retain_session(#{singular_name}, remember: params[:remember])
       redirect_to root_path
     else
       render :new
@@ -159,7 +169,7 @@ end
 module SessionManager
   extend ActiveSupport::Concern
 
-  SESSION_KEY = :account_id
+  SESSION_KEY = :#{singular_name}_id
   NoSigninError = Class.new(StandardError)
 
   included do
@@ -168,8 +178,8 @@ module SessionManager
 
   private
 
-  def retain_session(account, remember: false)
-    session[SESSION_KEY] = account.id
+  def retain_session(#{singular_name}, remember: false)
+    session[SESSION_KEY] = #{singular_name}.id
 
     if remember
       # TODO: impl
@@ -181,22 +191,22 @@ module SessionManager
   end
 
   # TODO: refact
-  def current_account
+  def current_#{singular_name}
     if (id = session[SESSION_KEY])
-      Account.find(id)
+      #{class_name}.find(id)
     elsif (id = cookies.signed[SESSION_KEY])
-      account = Account.find(id)
-      raise NoSigninError unless account.authenticated?(cookies[:remember_token])
+      #{singular_name} = #{class_name}.find(id)
+      raise NoSigninError unless #{singular_name}.authenticated?(cookies[:remember_token])
 
-      sign_in(account) # sessionにも保存
-      account
+      sign_in(#{singular_name}) # sessionにも保存
+      #{singular_name}
     else
       raise NoSigninError
     end
   end
 
   def signed_in?
-    current_account
+    current_#{singular_name}
     true
   rescue NoSigninError
     false
