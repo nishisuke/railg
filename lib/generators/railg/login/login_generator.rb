@@ -2,7 +2,7 @@ module Railg
   class LoginGenerator < ::Rails::Generators::NamedBase
     source_root File.expand_path('templates', __dir__)
 
-    argument :id_name, type: :string, default: '#{id_name}', banner: 'column name like email'
+    argument :id_name, type: :string, default: 'identifier', banner: 'column name like email'
 
     check_class_collision
 
