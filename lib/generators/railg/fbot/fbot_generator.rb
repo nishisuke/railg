@@ -9,7 +9,7 @@ module Railg
     end
 
     def after_bundle_do
-      insert_into_file 'spec/support/factory_bot.rb', <<~CODE
+      create_file 'spec/support/factory_bot.rb', <<~CODE
         # frozen_string_literal: true
         RSpec.configure do |config|
           config.include FactoryBot::Syntax::Methods
