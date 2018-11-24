@@ -13,8 +13,8 @@ module Railg
 
     def insert_meta_tag
       insert_into_file 'app/views/layouts/application.html.erb', <<-EOT, after: "  <head>\n"
-  <meta charset='UTF-8'>
-  <meta name='viewport' content='width=device-width,initial-scale=1'>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
       EOT
     end
 
