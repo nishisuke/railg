@@ -3,12 +3,17 @@ module Railg
     def configure_generator
       environment <<-EOT, env: 'development'
   config.generators do |g|
+    g.orm :ar_null_false_generator
     g.assets false
     g.helper false
     g.jbuilder false
     g.test_framework false
   end
       EOT
+    end
+
+    def gem_add
+      gem 'ar_null_false_generator', group: :development
     end
 
     def insert_meta_tag
